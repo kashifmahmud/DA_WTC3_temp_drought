@@ -1,0 +1,22 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1511151617957.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "1523913968",
+    "id" : "83D43F06",
+    "lastKnownWriteTime" : 1511157305,
+    "last_content_update" : 1511157305767,
+    "path" : "~/WSU/Final_projects/DA_WTC3_temp_drought/R/C_balance_wtc3.R",
+    "project_path" : "R/C_balance_wtc3.R",
+    "properties" : {
+        "cursorPosition" : "49,47",
+        "scrollLine" : "27"
+    },
+    "relative_order" : 4,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

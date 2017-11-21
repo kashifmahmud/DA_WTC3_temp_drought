@@ -1,0 +1,1 @@
+"0","write.csv(tnc.partitioning, file = ""processed_data/tnc_partitioning_data.csv"", row.names = FALSE)"

@@ -1,0 +1,13 @@
+{
+    "path" : "~/WSU/Final_projects/DA_WTC3_temp_drought/output",
+    "sortOrder" : [
+        {
+            "ascending" : false,
+            "columnIndex" : 4
+        },
+        {
+            "ascending" : true,
+            "columnIndex" : 2
+        }
+    ]
+}
