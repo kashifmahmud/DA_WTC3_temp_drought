@@ -52,36 +52,73 @@ source("R/functions_wtc3_CBM.R")
 #-------------------------------------------------------------------------------------
 
 # Model run for WTC3 dataset (without LA feedback)
-# treat.group = as.factor(c("ambient watered")) # Assign 1 treatment to check the model
+# treat.group = as.factor(c("elevated drought")) # Assign 1 treatment to check the model
 # treat.group = as.factor(c("ambient drought","elevated drought")) # Assign 1 treatment to check the model
 # treat.group = as.factor(c("ambient drought","ambient watered")) # Assign 2 treatments to compare the results
 treat.group = as.factor(c("ambient drought","ambient watered","elevated drought","elevated watered")) # Assign all treatments
 data.all = read.csv("processed_data/data_all.csv") 
 tnc.partitioning = read.csv("processed_data/tnc_partitioning_data.csv")
 
-#-------------------------------------------------------------------------------------
-#- Matching C balance of the entire experiment considering C inputs and outputs
-source("R/C_balance_wtc3.R")
+# #-------------------------------------------------------------------------------------
+# #- Matching C balance of the entire experiment considering C inputs and outputs
+# source("R/C_balance_wtc3.R")
+# 
+# #-------------------------------------------------------------------------------------
+# # Load the custom analysis and plotting functions that do all of the actual work	
+# source("R/functions_wtc3.R")	
+# source("R/functions_wtc3_CBM.R")	
+# # Define the INPUTS
+# # 3000 chain length is sufficient for the convergance
+# chainLength = 1000
+# no.param.par.var=4
+# with.storage = T
+# model.comparison=F
+# model.optimization=F
+# # 
+# # #-------------------------------------------------------------------------------------
+# # result = CBM.wtc3(chainLength = 1000, no.param.par.var=(nrow(data.all)/4)/30, treat.group=treat.group, with.storage, model.comparison=F, model.optimization=F) # Monthly parameters
+# start <- proc.time() # Start clock
+# result = CBM.wtc3(chainLength, no.param.par.var, treat.group, with.storage, model.comparison, model.optimization) # Quadratic/Cubic parameters
+# time_elapsed_series <- proc.time() - start # End clock
+# result[[6]]
+# write.csv(result[[6]], "output/bic.csv", row.names=FALSE) # unit of respiration rates: gC per gC plant per day
+# 
+# # Plot parameters and biomass data fit
+# plot.Modelled.parameters(result,with.storage)
+# plot.Modelled.biomass(result,with.storage)
 
 #-------------------------------------------------------------------------------------
-
+# Load the custom analysis and plotting functions that do all of the actual work	
 source("R/functions_wtc3.R")	
 source("R/functions_wtc3_CBM.R")	
+
+# Model run for WTC3 dataset with clustering
+cluster <- makeCluster(detectCores()-4)
+# clusterEvalQ(cluster, library(xts))
+clusterExport(cl=cluster, list("data.all","tnc.partitioning","treat.group"))
+ex <- Filter(function(x) is.function(get(x, .GlobalEnv)), ls(.GlobalEnv))
+clusterExport(cluster, ex)
+result.cluster = list()
+bic.cluster = list()
+
 start <- proc.time() # Start clock
-# 3000 chain length is sufficient for the convergance
-with.storage = T
-# result = CBM.wtc3(chainLength = 1000, no.param.par.var=(nrow(data.all)/4)/30, treat.group=treat.group, with.storage, model.comparison=F, model.optimization=F) # Monthly parameters
-result = CBM.wtc3(chainLength = 1000, no.param.par.var=2, treat.group=treat.group, with.storage, model.comparison=F, model.optimization=F) # Quadratic/Cubic parameters
+result <- clusterMap(cluster, CBM.wtc3, with.storage=c(T,T,T,T), model.comparison=c(F,F,F,F), model.optimization=c(F,F,F,F), 
+                             no.param.par.var=c(4,4,4,4),
+                             treat.group=treat.group,
+                             MoreArgs=list(chainLength=1000))
+
 time_elapsed_series <- proc.time() - start # End clock
-result[[6]]
-write.csv(result[[6]], "output/bic.csv", row.names=FALSE) # unit of respiration rates: gC per gC plant per day	
+stopCluster(cluster)
+listOfDataFrames <- vector(mode = "list", length = 4)
+for (i in 1:4) {
+  listOfDataFrames[[i]] <- data.frame(result[[i]][[6]])
+}
+bic = do.call("rbind", listOfDataFrames)
+write.csv(bic, "output/bic.csv", row.names=FALSE)
 
 # Plot parameters and biomass data fit
-plot.Modelled.parameters(result,with.storage)
-plot.Modelled.biomass(result,with.storage)
-#-------------------------------------------------------------------------------------
-
-
+plot.Modelled.parameters.wtc3(result,with.storage=T)
+plot.Modelled.biomass.wtc3(result,with.storage=T)
 #-------------------------------------------------------------------------------------
 # Calculate total C partitioning for individual treatments 
 # and make figure 7 and Table S1

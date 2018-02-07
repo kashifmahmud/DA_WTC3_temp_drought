@@ -7,12 +7,12 @@
 # This script calcualtes LogLikelihood to find the most accurate model
 logLikelihood.wtc3 <- function (no.param.par.var,data.set,output,with.storage,model.comparison) {
   logLi <- matrix(0, nrow=nrow(data.set), ncol = 1) # Initialising the logLi
-  # data_count = sum(!is.na(data.set$LM)) + sum(!is.na(data.set$WM)) + sum(!is.na(data.set$RM)) + sum(!is.na(data.set$Ra)) + sum(!is.na(data.set$TNC_leaf)) + sum(!is.na(data.set$litter))
-  data_count = sum(!is.na(data.set$LM)) + sum(!is.na(data.set$WM)) + sum(!is.na(data.set$RM)) + sum(!is.na(data.set$TNC_leaf)) + sum(!is.na(data.set$litter))
+  data_count = sum(!is.na(data.set$LM)) + sum(!is.na(data.set$WM)) + sum(!is.na(data.set$RM)) + sum(!is.na(data.set$Ra)) + sum(!is.na(data.set$TNC_leaf)) + sum(!is.na(data.set$litter))
+  # data_count = sum(!is.na(data.set$LM)) + sum(!is.na(data.set$WM)) + sum(!is.na(data.set$RM)) + sum(!is.na(data.set$TNC_leaf)) + sum(!is.na(data.set$litter))
   
   for (i in 1:nrow(data.set)) {
     if (!is.na(data.set$LM[i])) {
-      logLi[i] = - 2*((data_count/sum(!is.na(data.set$LM)))*0.5*((output$Mleaf[i] - data.set$LM[i])/data.set$LM_SE[i])^2 - log(data.set$LM_SE[i]) - log(2*pi)^0.5)
+      logLi[i] = - ((data_count/sum(!is.na(data.set$LM)))*0.5*((output$Mleaf[i] - data.set$LM[i])/data.set$LM_SE[i])^2 - log(data.set$LM_SE[i]) - log(2*pi)^0.5)
     }
     if (!is.na(data.set$WM[i])) {
       logLi[i] = logLi[i] - ((data_count/sum(!is.na(data.set$WM)))*0.5*((output$Mwood[i] - data.set$WM[i])/data.set$WM_SE[i])^2 - log(data.set$WM_SE[i]) - log(2*pi)^0.5)
@@ -21,11 +21,11 @@ logLikelihood.wtc3 <- function (no.param.par.var,data.set,output,with.storage,mo
       logLi[i] = logLi[i] - ((data_count/sum(!is.na(data.set$RM)))*(0.5*((output$Mroot[i] - data.set$RM[i])/data.set$RM_SE[i])^2 - log(data.set$RM_SE[i]) - log(2*pi)^0.5)) # multiplied by 2 to give extra weight
       # logLi[i] = logLi[i] - (0.5*((output$Mroot[i] - data.set$RM[i])/data.set$RM_SE[i])^2 - log(data.set$RM_SE[i]) - log(2*pi)^0.5) # multiplied by 20 to give extra weight
     }
-    # if (i > 1) {
-    #   if (!is.na(data.set$Ra[i])) {
-    #     logLi[i] = logLi[i] - ((data_count/sum(!is.na(data.set$Ra)))*(0.5*((output$Rabove[i] - data.set$Ra[i]) / data.set$Ra_SE[i])^2 - log(data.set$Ra_SE[i]) - log(2*pi)^0.5))
-    #   }
-    # }
+    if (i > 1) {
+      if (!is.na(data.set$Ra[i])) {
+        logLi[i] = logLi[i] - ((data_count/sum(!is.na(data.set$Ra)))*(0.5*((output$Rabove[i] - data.set$Ra[i]) / data.set$Ra_SE[i])^2 - log(data.set$Ra_SE[i]) - log(2*pi)^0.5))
+      }
+    }
     if (!is.null(data.set$litter)) {
       if (!is.na(data.set$litter[i])) {
         logLi[i] = logLi[i] - (data_count/sum(!is.na(data.set$litter)))*0.5*((output$Mlit[i] - data.set$litter[i])/data.set$litter_SE[i])^2 - log(data.set$litter_SE[i]) - log(2*pi)^0.5
@@ -138,7 +138,7 @@ CBM.wtc3 <- function(chainLength, no.param.par.var, treat.group, with.storage, m
   
   q = 0 # Indicates the iteration number
   # set.seed(3)
-  # set.seed(15) # final seed for reproducible results
+  # set.seed(4) # final seed for reproducible results
   # set.seed(18) 
   
   # Start the iteration for different treatment group and number of parameters
@@ -194,8 +194,8 @@ CBM.wtc3 <- function(chainLength, no.param.par.var, treat.group, with.storage, m
       }
       
       # Defining the variance-covariance matrix for proposal generation
-      # vcov = (0.006*(pMaxima-pMinima))^2
       vcov = (0.005*(pMaxima-pMinima))^2
+      # vcov = (0.0001*(pMaxima-pMinima))^2
       # vcov = (0.0025*(pMaxima-pMinima))^2
       # vcov = (0.001*(pMaxima-pMinima))^2
       vcovProposal =  vcov # The higher the coefficient, the higher the deviations in parameter time series
@@ -209,19 +209,38 @@ CBM.wtc3 <- function(chainLength, no.param.par.var, treat.group, with.storage, m
       logPrior0 <- sum(unlist(prior.dist))
       
       # Calculating model outputs for the starting point of the chain
-      if (no.param.par.var < 5) {
-        if (with.storage==T) {
-          output.set = model(no.param,data.set,tnc.partitioning,Y=pValues$Y,k=pValues$k,af=pValues$af,as=pValues$as,sf=pValues$sf,sr=pValues$sr)
-        } else {
-          output.set = model.without.storage(no.param,data.set,Y=pValues$Y,af=pValues$af,as=pValues$as,sf=pValues$sf,sr=pValues$sr)
+      # if (no.param.par.var < 5) {
+      #   if (with.storage==T) {
+      #     output.set = model(no.param,data.set,tnc.partitioning,Y=pValues$Y,k=pValues$k,af=pValues$af,as=pValues$as,sf=pValues$sf,sr=pValues$sr)
+      #   } else {
+      #     output.set = model.without.storage(no.param,data.set,Y=pValues$Y,af=pValues$af,as=pValues$as,sf=pValues$sf,sr=pValues$sr)
+      #   }
+      # } else { # no.param.par.var > 5; monthly parameter setting) 
+      #   if (with.storage==T) {
+      #     output.set = model.monthly(data.set,j,tnc.partitioning,Y=pValues$Y,k=pValues$k,af=pValues$af,as=pValues$as,sf=pValues$sf,sr=pValues$sr)
+      #   } else {
+      #     output.set = model.without.storage.monthly(data.set,j,Y=pValues$Y,af=pValues$af,as=pValues$as,sf=pValues$sf,sr=pValues$sr)
+      #   }
+      # }
+      # Consider the input uncertainty with u=10 model runs
+      listofdfs <- list()
+      for (u in 1:10) {
+        if (no.param.par.var < 5) {
+          if (with.storage==T) {
+            output.set = model(no.param,data.set,tnc.partitioning,Y=pValues$Y,k=pValues$k,af=pValues$af,as=pValues$as,sf=pValues$sf,sr=pValues$sr)
+          } else {
+            output.set = model.without.storage(no.param,data.set,Y=pValues$Y,af=pValues$af,as=pValues$as,sf=pValues$sf,sr=pValues$sr)
+          }
+        } else { # no.param.par.var > 5; monthly parameter setting)
+          if (with.storage==T) {
+            output.set = model.monthly(data.set,j,tnc.partitioning,Y=pValues$Y,k=pValues$k,af=pValues$af,as=pValues$as,sf=pValues$sf,sr=pValues$sr)
+          } else {
+            output.set = model.without.storage.monthly(data.set,j,Y=pValues$Y,af=pValues$af,as=pValues$as,sf=pValues$sf,sr=pValues$sr)
+          }
         }
-      } else { # no.param.par.var > 5; monthly parameter setting) 
-        if (with.storage==T) {
-          output.set = model.monthly(data.set,j,tnc.partitioning,Y=pValues$Y,k=pValues$k,af=pValues$af,as=pValues$as,sf=pValues$sf,sr=pValues$sr)
-        } else {
-          output.set = model.without.storage.monthly(data.set,j,Y=pValues$Y,af=pValues$af,as=pValues$as,sf=pValues$sf,sr=pValues$sr)
-        }
+        listofdfs[[u]] <- output.set
       }
+      output.set = aaply(laply(listofdfs, as.matrix), c(2, 3), mean)
       
       # output.set$volume = as.factor(vol[v[j]])
       # if (j == 1) {
@@ -230,7 +249,7 @@ CBM.wtc3 <- function(chainLength, no.param.par.var, treat.group, with.storage, m
       # if (j > 1) {
       #   output = rbind(output,output.set)
       # }
-      output = output.set
+      output = as.data.frame(output.set)
       output$treatment = as.factor(treat.group[v])
       
       # data.set = data.set[order(data.set$treatment),]
@@ -286,25 +305,49 @@ CBM.wtc3 <- function(chainLength, no.param.par.var, treat.group, with.storage, m
           #   Mwood[1] <- data.set$Mwood[1]
           #   Mroot[1] <- data.set$Mroot[1]
           
-          if (no.param.par.var < 5) {
-            if (with.storage==T) {
-              out.cand.set = model(no.param,data.set,tnc.partitioning,candidatepValues$Y,
-                                   candidatepValues$k,candidatepValues$af,candidatepValues$as,candidatepValues$sf,candidatepValues$sr)
-            } else {
-              out.cand.set = model.without.storage(no.param,data.set,candidatepValues$Y,
-                                                   candidatepValues$af,candidatepValues$as,candidatepValues$sf,candidatepValues$sr)
-            }
-          } else { # no.param.par.var > 5; monthly parameter setting) 
-            if (with.storage==T) {
-              out.cand.set = model.monthly(data.set,j,tnc.partitioning,candidatepValues$Y,
-                                           candidatepValues$k,candidatepValues$af,candidatepValues$as,candidatepValues$sf,candidatepValues$sr)
-            } else {
-              out.cand.set = model.without.storage.monthly(data.set,j,candidatepValues$Y,
-                                                           candidatepValues$af,candidatepValues$as,candidatepValues$sf,candidatepValues$sr)
-            }
-          }
+          # if (no.param.par.var < 5) {
+          #   if (with.storage==T) {
+          #     out.cand.set = model(no.param,data.set,tnc.partitioning,candidatepValues$Y,
+          #                          candidatepValues$k,candidatepValues$af,candidatepValues$as,candidatepValues$sf,candidatepValues$sr)
+          #   } else {
+          #     out.cand.set = model.without.storage(no.param,data.set,candidatepValues$Y,
+          #                                          candidatepValues$af,candidatepValues$as,candidatepValues$sf,candidatepValues$sr)
+          #   }
+          # } else { # no.param.par.var > 5; monthly parameter setting) 
+          #   if (with.storage==T) {
+          #     out.cand.set = model.monthly(data.set,j,tnc.partitioning,candidatepValues$Y,
+          #                                  candidatepValues$k,candidatepValues$af,candidatepValues$as,candidatepValues$sf,candidatepValues$sr)
+          #   } else {
+          #     out.cand.set = model.without.storage.monthly(data.set,j,candidatepValues$Y,
+          #                                                  candidatepValues$af,candidatepValues$as,candidatepValues$sf,candidatepValues$sr)
+          #   }
+          # }
           
-          out.cand = out.cand.set
+          # Consider the input uncertainty with u=10 model runs
+          listofdfs <- list()
+          for (u in 1:10) {
+            if (no.param.par.var < 5) {
+              if (with.storage==T) {
+                out.cand.set = model(no.param,data.set,tnc.partitioning,candidatepValues$Y,
+                                     candidatepValues$k,candidatepValues$af,candidatepValues$as,candidatepValues$sf,candidatepValues$sr)
+              } else {
+                out.cand.set = model.without.storage(no.param,data.set,candidatepValues$Y,
+                                                     candidatepValues$af,candidatepValues$as,candidatepValues$sf,candidatepValues$sr)
+              }
+            } else { # no.param.par.var > 5; monthly parameter setting)
+              if (with.storage==T) {
+                out.cand.set = model.monthly(data.set,j,tnc.partitioning,candidatepValues$Y,
+                                             candidatepValues$k,candidatepValues$af,candidatepValues$as,candidatepValues$sf,candidatepValues$sr)
+              } else {
+                out.cand.set = model.without.storage.monthly(data.set,j,candidatepValues$Y,
+                                                             candidatepValues$af,candidatepValues$as,candidatepValues$sf,candidatepValues$sr)
+              }
+            }
+            listofdfs[[u]] <- out.cand.set
+          }
+          out.cand.set = aaply(laply(listofdfs, as.matrix), c(2, 3), mean)
+          
+          out.cand = as.data.frame(out.cand.set)
           # out.cand.set$volume = as.factor(vol[v[j]])
           # if (j == 1) {
           #   out.cand = out.cand.set
@@ -801,21 +844,33 @@ model <- function (no.param,data.set,tnc.partitioning,Y,k,af,as,sf,sr) {
   Mroot[1] <- data.set$RM[1]
   Mlit[1] <- data.set$litter[1]
   
+  # Mleaf[1] <- rnorm(1, data.set$LM[1], data.set$LM_SE[1]/4)
+  # Mwood[1] <- rnorm(1, data.set$WM[1], data.set$WM_SE[1]/4)
+  # Mroot[1] <- rnorm(1, data.set$RM[1], data.set$RM_SE[1]/4)
+  # Mlit[1] <- rnorm(1, data.set$litter[1], data.set$litter_SE[1]/4)
+  
   Cstorage = Sleaf = Swood = Sroot = c()
   
   # From WTC-4 experiment for TNC partitioning to tree organs
-  # Leaf TNC C / Leaf C =  ; wood TNC C / wood C =  ; Root TNC C / Root C =  
+  # Leaf TNC C / Leaf C =  ; wood TNC C / wood C =  ; Root TNC C / Root C =
   Sleaf[1] = data.set$TNC_leaf[min(which(complete.cases(data.set$TNC_leaf)))]*0.75 # Consider the first available leaf tnc data as the starting point
   Swood[1] = data.set$TNC_wood[min(which(complete.cases(data.set$TNC_wood)))]*0.75 # Consider the first available leaf tnc data as the starting point
   Sroot[1] = data.set$TNC_root[min(which(complete.cases(data.set$TNC_root)))]*0.75 # Consider the first available leaf tnc data as the starting point
   Cstorage[1] = data.set$TNC_tot[min(which(complete.cases(data.set$TNC_tot)))]*0.75 # Consider the first available leaf tnc data as the starting point
   
+  # Sleaf[1] = rnorm(1, data.set$TNC_leaf[min(which(complete.cases(data.set$TNC_leaf)))], data.set$TNC_leaf_SE[min(which(complete.cases(data.set$TNC_leaf)))])*0.75 # Consider the first available leaf tnc data as the starting point
+  # Swood[1] = rnorm(1, data.set$TNC_wood[min(which(complete.cases(data.set$TNC_wood)))], data.set$TNC_wood_SE[min(which(complete.cases(data.set$TNC_wood)))])*0.75 # Consider the first available leaf tnc data as the starting point
+  # Sroot[1] = rnorm(1, data.set$TNC_root[min(which(complete.cases(data.set$TNC_root)))], data.set$TNC_root_SE[min(which(complete.cases(data.set$TNC_root)))])*0.75 # Consider the first available leaf tnc data as the starting point
+  # Cstorage[1] = rnorm(1, data.set$TNC_tot[min(which(complete.cases(data.set$TNC_tot)))], data.set$TNC_tot_SE[min(which(complete.cases(data.set$TNC_tot)))])*0.75 # Consider the first available leaf tnc data as the starting point
+  
   Cleaf <- Croot <- Cwood <- Rm <- c()
-  Cleaf[1] <- data.set$LM[1] - Sleaf[1]
-  Cwood[1] <- data.set$WM[1] - Swood[1]
-  Croot[1] <- data.set$RM[1] - Sroot[1]
+  Cleaf[1] <- Mleaf[1] - Sleaf[1]
+  Cwood[1] <- Mwood[1] - Swood[1]
+  Croot[1] <- Mroot[1] - Sroot[1]
   
   Rabove[1] = data.set$Ra[1]
+  
+  # Rabove[1] = rnorm(1, data.set$Ra[1], data.set$Ra_SE[1]/2)
   Rm[1] = data.set$Rd.foliage.mean[1]*Mleaf[1] + data.set$Rd.stem.mean[1]*Mwood[1]*data.set$SMratio[1] +
     data.set$Rd.branch.mean[1]*Mwood[1]*data.set$BMratio[1] +
     data.set$Rd.fineroot.mean[1]*Mroot[1]*data.set$FRratio[1] + data.set$Rd.intermediateroot.mean[1]*Mroot[1]*data.set$IRratio[1] +
@@ -842,23 +897,34 @@ model <- function (no.param,data.set,tnc.partitioning,Y,k,af,as,sf,sr) {
       data.set$Rd.fineroot.mean[i-1]*Mroot[i-1]*data.set$FRratio[i-1] + data.set$Rd.intermediateroot.mean[i-1]*Mroot[i-1]*data.set$IRratio[i-1] + 
       data.set$Rd.coarseroot.mean[i-1]*Mroot[i-1]*data.set$CRratio[i-1] + data.set$Rd.boleroot.mean[i-1]*Mroot[i-1]*data.set$BRratio[i-1]
     
-    Cstorage[i] <- Cstorage[i-1] + data.set$GPP[i-1] - Rm[i-1] - k.i*Cstorage[i-1]
+    # Cstorage[i] <- Cstorage[i-1] + data.set$GPP[i-1] - Rm[i-1] - k.i*Cstorage[i-1]
+    # Cstorage[i] <- Cstorage[i-1] + rnorm(1, data.set$GPP[i-1], data.set$GPP_SE[i-1]) - Rm[i-1] - k.i*Cstorage[i-1] ###############
+    
+    # Cstorage[i] <- (Cstorage[i-1] + data.set$GPP[i] - Rm[i]) / (1 + k.i)
+    Cstorage[i] <- (Cstorage[i-1] + rnorm(1, data.set$GPP[i], data.set$GPP_SE[i]/3) - Rm[i]) / (1 + k.i)
     Sleaf[i] <- Cstorage[i] * tnc.partitioning$foliage[i] 
     Swood[i] <- Cstorage[i] * tnc.partitioning$wood[i] 
     Sroot[i] <- Cstorage[i] * tnc.partitioning$root[i] 
-    Mlit[i] <- sf.i*Cleaf[i-1] # foliage litter fall
     
-    Cleaf[i] <- Cleaf[i-1] + k.i*Cstorage[i-1]*af.i*(1-Y.i) - Mlit[i]
-    Cwood[i] <- Cwood[i-1] + k.i*Cstorage[i-1]*as.i*(1-Y.i)
-    Croot[i] <- Croot[i-1] + k.i*Cstorage[i-1]*(1-af.i-as.i)*(1-Y.i) - sr.i*Croot[i-1]
+    # Mlit[i] <- sf.i*Cleaf[i-1] # foliage litter fall
+    # Cleaf[i] <- Cleaf[i-1] + k.i*Cstorage[i-1]*af.i*(1-Y.i) - Mlit[i]
+    # Cwood[i] <- Cwood[i-1] + k.i*Cstorage[i-1]*as.i*(1-Y.i)
+    # Croot[i] <- Croot[i-1] + k.i*Cstorage[i-1]*(1-af.i-as.i)*(1-Y.i) - sr.i*Croot[i-1]
+    
+    Cleaf[i] <- Cleaf[i-1] + k.i*Cstorage[i]*af.i*(1-Y.i) / (1 + sf.i)
+    Cwood[i] <- Cwood[i-1] + k.i*Cstorage[i]*as.i*(1-Y.i)
+    Croot[i] <- Croot[i-1] + k.i*Cstorage[i]*(1-af.i-as.i)*(1-Y.i) / (1 + sr.i)
     
     Mleaf[i] <- Cleaf[i] + Sleaf[i]
     Mwood[i] <- Cwood[i] + Swood[i]
     Mroot[i] <- Croot[i] + Sroot[i]
     
     # Y.modelled[i] = Y.i
-    Rabove[i] = data.set$Rd.foliage.mean[i-1]*Mleaf[i-1] + data.set$Rd.stem.mean[i-1]*Mwood[i-1]*data.set$SMratio[i-1] + data.set$Rd.branch.mean[i-1]*Mwood[i-1]*data.set$BMratio[i-1] +
+    # Rabove[i] = data.set$Rd.foliage.mean[i-1]*Mleaf[i-1] + data.set$Rd.stem.mean[i-1]*Mwood[i-1]*data.set$SMratio[i-1] + data.set$Rd.branch.mean[i-1]*Mwood[i-1]*data.set$BMratio[i-1] +
+    #   Y.i*(Mleaf[i]-Mleaf[i-1] + Mwood[i]-Mwood[i-1])
+    Rabove[i] = data.set$Rd.foliage.mean[i]*Mleaf[i] + data.set$Rd.stem.mean[i]*Mwood[i]*data.set$SMratio[i] + data.set$Rd.branch.mean[i]*Mwood[i]*data.set$BMratio[i] +
       Y.i*(Mleaf[i]-Mleaf[i-1] + Mwood[i]-Mwood[i-1])
+    Mlit[i] <- sf.i*Cleaf[i] # foliage litter fall
   }
   # Rm[i] = data.set$Rd.foliage.mean[i]*Mleaf[i] + data.set$Rd.stem.mean[i]*Mwood[i]*data.set$SMratio[i] + 
   #   data.set$Rd.branch.mean[i]*Mwood[i]*data.set$BMratio[i] + 
@@ -1068,7 +1134,20 @@ model.without.storage.monthly <- function (data.set,j,Y,af,as,sf,sr) {
 ################ Figure 4 #####################
 # Plot modelled parameters with 3 Grouped treatments and quadratic parameter setting
 #-------------------------------------------------------------------------------------
-plot.Modelled.parameters <- function(result,with.storage) { 
+plot.Modelled.parameters.wtc3 <- function(result,with.storage) {
+  listOfDataFrames <- vector(mode = "list", length = 4)
+  for (i in 1:4) {
+    listOfDataFrames[[i]] <- data.frame(result[[i]][[1]])
+  }
+  no.param.par.var = do.call("rbind", listOfDataFrames)
+  names(no.param.par.var) = "no.param"
+  
+  listOfDataFrames <- vector(mode = "list", length = 4)
+  for (i in 1:4) {
+    listOfDataFrames[[i]] <- data.frame(result[[i]][[2]])
+  }
+  summary.param = do.call("rbind", listOfDataFrames)
+  
   # cbPalette = c("gray", "skyblue", "orange", "green3", "yellow3", "#0072B2", "#D55E00")
   cbPalette = c("darkorange", "cyan", "firebrick", "deepskyblue3")
   i = 0
@@ -1082,16 +1161,16 @@ plot.Modelled.parameters <- function(result,with.storage) {
     title = as.character(c("A","B","C","D","E","F"))
   }
   pd <- position_dodge(0.5)
-  no.param.par.var = result[[1]]
-  summary.param = result[[2]]
-  summary.data = result[[3]]
-  summary.output = result[[4]]
-  summary.error = result[[5]]
+  # no.param.par.var = result[[1]]
+  # summary.param = result[[2]]
+  # summary.data = result[[3]]
+  # summary.output = result[[4]]
+  # summary.error = result[[5]]
   
   for (p in 1:length(var)) {
     summary.param.set.limit = subset(summary.param, variable %in% var[p])
     for (z in 1:length(no.param.par.var)) {
-      summary.param.set = subset(summary.param, variable %in% var[p] & no.param %in% no.param.par.var[z])
+      summary.param.set = subset(summary.param, variable %in% var[p] & no.param %in% no.param.par.var$no.param[z])
       i = i + 1
       plot[[i]] = ggplot(data = summary.param.set, aes(x = Date, y = Parameter,  group = treatment, colour=factor(treatment))) +
         geom_ribbon(data = summary.param.set, aes(ymin=Parameter-Parameter_SD, ymax=Parameter+Parameter_SD), linetype=2, alpha=0.1,size=0.1) +
@@ -1105,16 +1184,16 @@ plot.Modelled.parameters <- function(result,with.storage) {
                                       max(summary.param.set.limit$Parameter)+2*max(summary.param.set.limit$Parameter_SD))) +
         annotate("text", x = min(summary.param.set$Date), y = max(summary.param.set$Parameter) + 2*max(summary.param.set$Parameter_SD), size = font.size-7, label = paste(title[p])) +
         theme_bw() +
-        theme(legend.title = element_text(colour="black", size=font.size)) +
+        theme(legend.title = element_text(colour="black", size=font.size-font.size)) +
         theme(legend.text = element_text(colour="black", size=font.size-3)) +
-        theme(legend.position = c(0.65,0.85)) +
+        theme(legend.position = c(0.45,0.82)) +
         theme(legend.key = element_blank()) +
         theme(text = element_text(size=font.size)) +
         theme(axis.title.x = element_blank()) +
         theme(axis.title.y = element_text(size = font.size, vjust=0.3)) +
         theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
       
-      if (with.storage==T) { 
+      if (with.storage==T) {
         if (p==1) {
           # plot[[i]] = plot[[i]] + scale_colour_manual(name="", breaks=c("1", "2", "3"),
           #                                             labels=c("Small", "Large", "Free"), values=cbPalette[2:4]) +
@@ -1147,7 +1226,7 @@ plot.Modelled.parameters <- function(result,with.storage) {
       } else {
         if (p==1) {
           plot[[i]] = plot[[i]] + scale_colour_manual(name="", values=cbPalette[1:4])
-          plot[[i]] = plot[[i]] + theme(legend.key.height=unit(0.7,"line"))
+          plot[[i]] = plot[[i]] + theme(legend.key.height=unit(0.6,"line"))
         } else if (p>1) {
           plot[[i]] = plot[[i]] + guides(colour=FALSE)
         } 
@@ -1186,17 +1265,29 @@ plot.Modelled.parameters <- function(result,with.storage) {
 ################ Figure 5 #####################
 # Plot Daily analysis (lines) with optimum parameter setting and intermittent observations (symbols) of selected carbon stocks
 #-------------------------------------------------------------------------------------
-plot.Modelled.biomass <- function(result,with.storage) { 
+plot.Modelled.biomass.wtc3 <- function(result,with.storage) { 
+  listOfDataFrames <- vector(mode = "list", length = 4)
+  for (i in 1:4) {
+    listOfDataFrames[[i]] <- data.frame(result[[i]][[4]])
+  }
+  summary.output = do.call("rbind", listOfDataFrames)
+  
+  listOfDataFrames <- vector(mode = "list", length = 4)
+  for (i in 1:4) {
+    listOfDataFrames[[i]] <- data.frame(result[[i]][[5]])
+  }
+  summary.error = do.call("rbind", listOfDataFrames)
+  
   # cbPalette = c("gray", "skyblue", "orange", "green3", "yellow3", "#0072B2", "#D55E00")
   cbPalette = c("darkorange", "cyan", "firebrick", "deepskyblue3")
   i = 0
   font.size = 10
   plot = list() 
-  no.param.par.var = result[[1]]
-  summary.param = result[[2]]
-  summary.data = result[[3]]
-  summary.output = result[[4]]
-  summary.error = result[[5]]
+  # no.param.par.var = result[[1]]
+  # summary.param = result[[2]]
+  # summary.data = result[[3]]
+  # summary.output = result[[4]]
+  # summary.error = result[[5]]
   if (with.storage==T) { 
     meas = as.factor(c("LM","WM","RM","litter","TNC_leaf","Ra"))
     res = as.factor(c("Mleaf.modelled","Mwood.modelled","Mroot.modelled","Mlit.modelled","Sleaf.modelled","Rabove"))
@@ -1210,7 +1301,7 @@ plot.Modelled.biomass <- function(result,with.storage) {
   }
   pd <- position_dodge(2) # move the overlapped errorbars horizontally
   for (p in 1:length(meas)) {
-    summary.data.Cpool = subset(summary.data,variable %in% meas[p])
+    # summary.data.Cpool = subset(summary.data,variable %in% meas[p])
     summary.output.Cpool = subset(summary.output,variable %in% res[p])
     summary.error.Cpool = subset(summary.error,variable %in% error[p])
     # if (p==4) {
@@ -1231,6 +1322,7 @@ plot.Modelled.biomass <- function(result,with.storage) {
         # labs(colour="Pot Volume (L)", linetype="No. of Parameters") +
         labs(colour="Treatment") +
         scale_color_manual(values=cbPalette[1:4]) +
+        expand_limits(y=0) + 
         # scale_color_manual(labels = c("Individuals", "One Group"), values = c("blue", "red")) +
         # coord_trans(y = "log10") + ylab(paste(as.character(meas[p]),"(g C plant-1)")) +
         theme_bw() +
@@ -1256,15 +1348,16 @@ plot.Modelled.biomass <- function(result,with.storage) {
         ylab(paste(as.character(meas[p]),"(g C)")) + xlab("Month") +
         labs(colour="Treatment") +
         scale_color_manual(values=cbPalette[1:4]) +
+        expand_limits(y=0) + 
         # scale_color_manual(labels = c("Individuals", "One Group"), values = c("blue", "red")) +
         # coord_trans(y = "log10") + ylab(paste(as.character(meas[p]),"(g C plant-1)")) +
         theme_bw() +
         annotate("text", x = max(summary.output.Cpool$Date), y = min(summary.output.Cpool$value), size = font.size-7, label = paste(title[p])) +
         # theme(plot.title = element_text(size = 20, face = "bold")) +
-        theme(legend.title = element_text(colour="black", size=font.size-2)) +
-        theme(legend.text = element_text(colour="black", size = font.size-3)) +
-        theme(legend.key.height=unit(0.6,"line")) +
-        theme(legend.position = c(0.22,0.8)) +
+        theme(legend.title = element_text(colour="black", size=font.size-3)) +
+        theme(legend.text = element_text(colour="black", size = font.size-4)) +
+        theme(legend.key.height=unit(0.5,"line")) +
+        theme(legend.position = c(0.22,0.22)) +
         theme(legend.key = element_blank()) +
         theme(text = element_text(size=font.size)) +
         theme(axis.title.x = element_blank()) +

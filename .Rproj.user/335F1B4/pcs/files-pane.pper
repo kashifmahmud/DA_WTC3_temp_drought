@@ -1,13 +1,13 @@
 {
-    "path" : "~/WSU/Final_projects/DA_WTC3_temp_drought/output",
+    "path" : "~/WSU/Final_projects/DA_WTC3_temp_drought/R",
     "sortOrder" : [
-        {
-            "ascending" : false,
-            "columnIndex" : 4
-        },
         {
             "ascending" : true,
             "columnIndex" : 2
+        },
+        {
+            "ascending" : false,
+            "columnIndex" : 4
         }
     ]
 }
